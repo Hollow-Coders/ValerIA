@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{% if tenant %}Editar{% else %}Nuevo{% endif %} cliente - ValerIA{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{% if tenant %}Editar cliente{% else %}Nuevo cliente{% endif %}</h1>
+    {% if tenant and usage %}
+    <p class="muted">Uso {{ usage.period }}: {{ usage.used }} / {{ usage.limit }} ({{ usage.percent }}%)</p>
+    {% endif %}
+  </div>
+  <a class="btn secondary" href="/panel/">Volver</a>
+</div>
+
+{% if error %}
+<div class="alert error">{{ error }}</div>
+{% endif %}
+
+<div class="card">
+  <form method="post" action="{% if tenant %}/panel/tenants/{{ tenant.id }}{% else %}/panel/tenants/new{% endif %}">
+    <div class="form-grid">
+      <div>
+        <label>Slug (único)</label>
+        <input name="slug" value="{{ tenant.slug if tenant else '' }}" required>
+      </div>
+      <div>
+        <label>Nombre interno</label>
+        <input name="name" value="{{ tenant.name if tenant else '' }}" required>
+      </div>
+      <div>
+        <label>Nombre del negocio</label>
+        <input name="business_name" value="{{ tenant.business_name if tenant else '' }}" required>
+      </div>
+      <div>
+        <label>Asistente de (dueño)</label>
+        <input name="assistant_owner_name" value="{{ tenant.assistant_owner_name if tenant else 'Gilberto' }}">
+      </div>
+      <div>
+        <label>Plan</label>
+        <select name="plan">
+          {% for key, plan in plans.items() %}
+          <option value="{{ key }}" {% if tenant and tenant.plan == key %}selected{% endif %}>
+            {{ plan.label }} ({{ plan.limit }} msgs)
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Límite mensual (override)</label>
+        <input type="number" name="monthly_message_limit" value="{{ tenant.monthly_message_limit if tenant else plans.business.limit }}" required>
+      </div>
+      <div>
+        <label>Phone Number ID</label>
+        <input name="whatsapp_phone_number_id" value="{{ tenant.whatsapp_phone_number_id if tenant else '' }}" required>
+      </div>
+      <div>
+        <label>WhatsApp Token</label>
+        <input name="whatsapp_token" value="{{ tenant.whatsapp_token if tenant else '' }}" required>
+      </div>
+      <div>
+        <label>Archivo de contexto</label>
+        <input name="business_context_file" value="{{ tenant.business_context_file if tenant else 'app/contexts/seguros_mexicali_plus.txt' }}">
+      </div>
+      <div>
+        <label>Personalidad (1-5)</label>
+        <input type="number" min="1" max="5" name="personality_level" value="{{ tenant.personality_level if tenant else 4 }}">
+      </div>
+      <div class="checkbox-row">
+        <label>
+          <input type="checkbox" name="is_active" {% if not tenant or tenant.is_active %}checked{% endif %}>
+          Cliente activo
+        </label>
+      </div>
+    </div>
+    <button type="submit" class="btn">{% if tenant %}Guardar cambios{% else %}Crear cliente{% endif %}</button>
+  </form>
+</div>
+{% endblock %}

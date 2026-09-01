@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - ValerIA{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="muted">Periodo: {{ metrics.period }}</p>
+  </div>
+  <a class="btn" href="/panel/tenants/new">+ Nuevo cliente</a>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <span class="label">Clientes</span>
+    <strong>{{ metrics.tenant_count }}</strong>
+    <small>{{ metrics.active_count }} activos</small>
+  </div>
+  <div class="stat-card">
+    <span class="label">Mensajes del mes</span>
+    <strong>{{ metrics.total_used }}</strong>
+    <small>de {{ metrics.total_limit }} incluidos</small>
+  </div>
+  <div class="stat-card warn">
+    <span class="label">Cerca del límite</span>
+    <strong>{{ metrics.near_limit }}</strong>
+    <small>≥ 80% usado</small>
+  </div>
+  <div class="stat-card danger">
+    <span class="label">Límite alcanzado</span>
+    <strong>{{ metrics.at_limit }}</strong>
+    <small>sin respuestas IA</small>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Clientes y uso</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Cliente</th>
+        <th>Plan</th>
+        <th>Uso</th>
+        <th>Progreso</th>
+        <th>Estado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tenant in metrics.tenants %}
+      <tr>
+        <td>
+          <strong>{{ tenant.name }}</strong><br>
+          <span class="muted">{{ tenant.business_name }}</span>
+        </td>
+        <td>{{ tenant.plan_label }}</td>
+        <td>{{ tenant.used }} / {{ tenant.limit }}</td>
+        <td>
+          <div class="progress">
+            <div class="bar {% if tenant.percent >= 100 %}danger{% elif tenant.percent >= 80 %}warn{% endif %}" style="width: {{ tenant.percent }}%"></div>
+          </div>
+          <small>{{ tenant.percent }}%</small>
+        </td>
+        <td>
+          {% if tenant.is_active %}
+          <span class="badge ok">Activo</span>
+          {% else %}
+          <span class="badge">Pausado</span>
+          {% endif %}
+        </td>
+        <td><a href="/panel/tenants/{{ tenant.id }}">Editar</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">No hay clientes todavía.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Planes disponibles</h2>
+  <div class="plans-grid">
+    {% for key, plan in plans.items() %}
+    <div class="plan-card">
+      <h3>{{ plan.label }}</h3>
+      <p>{{ plan.limit }} mensajes/mes</p>
+      <strong>${{ plan.price_mxn }} MXN</strong>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

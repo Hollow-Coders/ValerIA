@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ValerIA Panel{% endblock %}</title>
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+  {% if request.session.get('panel_auth') %}
+  <header class="topbar">
+    <div class="brand">ValerIA <span>Admin</span></div>
+    <nav>
+      <a href="/panel/">Dashboard</a>
+      <a href="/panel/tenants/new">Nuevo cliente</a>
+      <a href="/panel/logout">Salir</a>
+    </nav>
+  </header>
+  {% endif %}
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

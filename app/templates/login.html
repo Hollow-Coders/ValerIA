@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Login - ValerIA{% endblock %}
+{% block content %}
+<div class="login-card">
+  <h1>ValerIA Panel</h1>
+  <p class="muted">Acceso para administradores del servicio</p>
+  {% if error %}
+  <div class="alert error">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="/panel/login">
+    <label>Contraseña admin</label>
+    <input type="password" name="password" required autofocus>
+    <button type="submit">Entrar</button>
+  </form>
+</div>
+{% endblock %}
