@@ -117,6 +117,13 @@ def seed_default_tenant_from_env() -> None:
             .first()
         )
         if existing:
+            existing.whatsapp_token = settings.whatsapp_token
+            existing.business_name = settings.business_name or existing.business_name
+            existing.assistant_owner_name = settings.assistant_owner_name or existing.assistant_owner_name
+            existing.personality_level = settings.personality_level or existing.personality_level
+            if settings.business_context_file:
+                existing.business_context_file = settings.business_context_file
+            db.commit()
             return
 
         slug = settings.business_name.lower().replace(" ", "-")[:64] or "cliente-default"

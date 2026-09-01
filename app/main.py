@@ -66,6 +66,8 @@ async def receive_webhook(request: Request) -> dict[str, str]:
             logger.error("No hay cliente configurado para phone_number_id=%s", phone_number_id)
             return {"status": "unknown_tenant"}
 
+        logger.info("Mensaje para tenant=%s phone_number_id=%s", tenant.slug, phone_number_id)
+
         messages = value.get("messages", [])
         if not messages:
             return {"status": "ignored"}
