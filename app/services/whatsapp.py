@@ -9,7 +9,8 @@ GRAPH_API = "https://graph.facebook.com/v21.0"
 
 
 def normalize_recipient_phone(phone: str) -> str:
-    digits = phone.lstrip("+").strip()
+    digits = "".join(ch for ch in (phone or "") if ch.isdigit())
+    # México móvil: WhatsApp a veces manda 521…; Meta suele esperar 52…
     if digits.startswith("521") and len(digits) == 13:
         return "52" + digits[3:]
     return digits

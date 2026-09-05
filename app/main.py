@@ -151,9 +151,8 @@ async def receive_webhook(request: Request) -> dict[str, str]:
             return {"status": "limit_reached"}
 
         reply = generate_reply(tenant, user_text, history, is_first_message=is_first_message)
-        save_message(tenant, phone, "assistant", reply)
-
         await send_text_message(tenant, phone, reply)
+        save_message(tenant, phone, "assistant", reply)
         increment_usage(tenant.id)
         logger.info("Respuesta enviada tenant=%s phone=%s", tenant.slug, phone)
         return {"status": "sent"}

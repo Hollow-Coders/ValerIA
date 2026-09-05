@@ -60,8 +60,8 @@
         <label>Teléfono del asesor (WhatsApp)</label>
         <input name="notify_phone" value="{{ tenant.notify_phone if tenant else '' }}" placeholder="526531077410">
         <small class="muted">
-          Número del asesor del negocio (no el tuyo). Cuando un cliente pida humano,
-          ValerIA le avisa por WhatsApp y reenvía la conversación.
+          Solo el WhatsApp del asesor del negocio (ej. 526531077410). El cliente final no se pone aquí:
+          solo debe estar en la lista de prueba de Meta mientras estés en modo test.
         </small>
       </div>
       <div>

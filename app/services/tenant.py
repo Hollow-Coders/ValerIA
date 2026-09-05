@@ -4,6 +4,7 @@ from app.config import settings
 from app.database import PROJECT_ROOT, SessionLocal, Tenant
 from app.models.tenant_config import TenantConfig, resolve_business_context
 from app.services.plans import get_plan_limit
+from app.services.whatsapp import normalize_recipient_phone
 from app.services.usage import get_tenant_usage_summary
 
 
@@ -103,7 +104,7 @@ def create_tenant(data: dict) -> dict:
             max_history_messages=data.get("max_history_messages", settings.max_history_messages),
             plan=plan,
             monthly_message_limit=monthly_limit,
-            notify_phone=data.get("notify_phone", ""),
+            notify_phone=normalize_recipient_phone(data.get("notify_phone", "")),
             is_active=data.get("is_active", True),
         )
         db.add(tenant)
@@ -136,8 +137,10 @@ def update_tenant(tenant_id: int, data: dict) -> dict | None:
             "is_active",
         ):
             if field in data and data[field] is not None:
-                setattr(tenant, field, data[field])
-
+                value = data[field]
+                if field == "notify_phone":
+                    value = normalize_recipient_phone(str(value))
+                setattr(tenant, field, value)
         if "plan" in data and data["plan"] and "monthly_message_limit" not in data:
             tenant.monthly_message_limit = get_plan_limit(data["plan"])
 
