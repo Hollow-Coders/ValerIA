@@ -159,10 +159,16 @@ def seed_default_tenant_from_env() -> None:
             .first()
         )
         if existing:
-            existing.whatsapp_token = settings.whatsapp_token
-            existing.business_name = settings.business_name or existing.business_name
-            existing.assistant_owner_name = settings.assistant_owner_name or existing.assistant_owner_name
-            existing.personality_level = settings.personality_level or existing.personality_level
+            # No pisar el token del panel con uno viejo del .env / Railway en cada restart.
+            # Solo rellenar si el tenant no tiene token.
+            if settings.whatsapp_token and not (existing.whatsapp_token or "").strip():
+                existing.whatsapp_token = settings.whatsapp_token
+            if settings.business_name:
+                existing.business_name = settings.business_name or existing.business_name
+            if settings.assistant_owner_name:
+                existing.assistant_owner_name = settings.assistant_owner_name or existing.assistant_owner_name
+            if settings.personality_level:
+                existing.personality_level = settings.personality_level or existing.personality_level
             if settings.business_context_file:
                 existing.business_context_file = settings.business_context_file
             db.commit()
