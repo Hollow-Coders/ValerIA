@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Conversaciones - ValerIA{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Conversaciones</h1>
+    <p class="muted">Toma control cuando quieras. Si el bot está pausado, no responde con IA.</p>
+  </div>
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Cliente</th>
+        <th>Contacto</th>
+        <th>Último mensaje</th>
+        <th>Estado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for chat in conversations %}
+      <tr>
+        <td>{{ chat.tenant_name }}</td>
+        <td>{{ chat.phone_display }}</td>
+        <td>
+          <span class="muted">{{ chat.last_role }}:</span>
+          {{ chat.last_message[:80] }}{% if chat.last_message|length > 80 %}...{% endif %}
+        </td>
+        <td>
+          {% if chat.bot_enabled %}
+          <span class="badge ok">Bot activo</span>
+          {% else %}
+          <span class="badge danger">Esperando humano</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="/panel/conversations/{{ chat.tenant_id }}/{{ chat.phone }}">Abrir</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">Aún no hay conversaciones.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -27,3 +27,24 @@ def get_history(tenant: TenantConfig, phone: str) -> list[dict[str, str]]:
 
     rows.reverse()
     return [{"role": row.role, "content": row.content} for row in rows]
+
+
+def get_thread(tenant_id: int, phone: str, limit: int = 50) -> list[dict]:
+    with SessionLocal() as db:
+        rows = (
+            db.query(Message)
+            .filter(Message.tenant_id == tenant_id, Message.phone == phone)
+            .order_by(Message.id.desc())
+            .limit(limit)
+            .all()
+        )
+
+    rows.reverse()
+    return [
+        {
+            "role": row.role,
+            "content": row.content,
+            "created_at": row.created_at,
+        }
+        for row in rows
+    ]

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Chat - ValerIA{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ tenant.business_name }}</h1>
+    <p class="muted">+{{ phone }}</p>
+  </div>
+  <div class="actions-row">
+    {% if bot_enabled %}
+    <form method="post" action="/panel/conversations/{{ tenant.id }}/{{ phone }}/pause">
+      <button type="submit" class="btn secondary">Pausar bot</button>
+    </form>
+    {% else %}
+    <form method="post" action="/panel/conversations/{{ tenant.id }}/{{ phone }}/resume">
+      <button type="submit" class="btn">Reactivar bot</button>
+    </form>
+    {% endif %}
+    <a class="btn secondary" href="/panel/conversations">Volver</a>
+  </div>
+</div>
+
+<div class="card">
+  {% if bot_enabled %}
+  <div class="alert ok-banner">ValerIA está respondiendo automáticamente.</div>
+  {% else %}
+  <div class="alert warn-banner">Bot pausado — responde tú desde aquí abajo.</div>
+  {% endif %}
+
+  <div class="chat-thread">
+    {% for msg in thread %}
+    <div class="chat-bubble {{ msg.role }}">
+      <div class="chat-meta">
+        {% if msg.role == 'user' %}Cliente{% elif msg.role == 'human' %}Tú{% else %}ValerIA{% endif %}
+        · {{ msg.created_at.strftime('%d/%m %H:%M') if msg.created_at else '' }}
+      </div>
+      <div>{{ msg.content }}</div>
+    </div>
+    {% else %}
+    <p class="muted">Sin mensajes todavía.</p>
+    {% endfor %}
+  </div>
+
+  <form method="post" action="/panel/conversations/{{ tenant.id }}/{{ phone }}/reply" class="reply-form">
+    <label>Responder como humano (pausa el bot automáticamente)</label>
+    <textarea name="message" rows="3" placeholder="Escribe tu respuesta..." required></textarea>
+    <button type="submit" class="btn">Enviar por WhatsApp</button>
+  </form>
+</div>
+{% endblock %}

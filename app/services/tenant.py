@@ -25,6 +25,7 @@ def _to_config(tenant: Tenant) -> TenantConfig:
         max_history_messages=tenant.max_history_messages or settings.max_history_messages,
         plan=tenant.plan,
         monthly_message_limit=tenant.monthly_message_limit,
+        notify_phone=tenant.notify_phone or "",
     )
 
 
@@ -38,6 +39,14 @@ def get_tenant_by_phone_number_id(phone_number_id: str) -> TenantConfig | None:
             )
             .first()
         )
+        if not tenant:
+            return None
+        return _to_config(tenant)
+
+
+def get_tenant_config_by_id(tenant_id: int) -> TenantConfig | None:
+    with SessionLocal() as db:
+        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
         if not tenant:
             return None
         return _to_config(tenant)
@@ -94,6 +103,7 @@ def create_tenant(data: dict) -> dict:
             max_history_messages=data.get("max_history_messages", settings.max_history_messages),
             plan=plan,
             monthly_message_limit=monthly_limit,
+            notify_phone=data.get("notify_phone", ""),
             is_active=data.get("is_active", True),
         )
         db.add(tenant)
@@ -122,6 +132,7 @@ def update_tenant(tenant_id: int, data: dict) -> dict | None:
             "max_history_messages",
             "plan",
             "monthly_message_limit",
+            "notify_phone",
             "is_active",
         ):
             if field in data and data[field] is not None:

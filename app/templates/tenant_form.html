@@ -57,6 +57,14 @@
         <input name="whatsapp_token" value="{{ tenant.whatsapp_token if tenant else '' }}" required>
       </div>
       <div>
+        <label>Teléfono del asesor (WhatsApp)</label>
+        <input name="notify_phone" value="{{ tenant.notify_phone if tenant else '' }}" placeholder="526531077410">
+        <small class="muted">
+          Número del asesor del negocio (no el tuyo). Cuando un cliente pida humano,
+          ValerIA le avisa por WhatsApp y reenvía la conversación.
+        </small>
+      </div>
+      <div>
         <label>Archivo de contexto</label>
         <input name="business_context_file" value="{{ tenant.business_context_file if tenant else 'app/contexts/seguros_mexicali_plus.txt' }}">
       </div>

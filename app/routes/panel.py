@@ -7,8 +7,11 @@ from starlette.responses import Response
 
 from app.config import settings
 from app.services.plans import PLANS, get_plan_limit
-from app.services.tenant import create_tenant, get_tenant_by_id, update_tenant
+from app.services.handoff import count_pending_handoffs, list_conversations, pause_bot, resume_bot
+from app.services.tenant import create_tenant, get_tenant_by_id, get_tenant_config_by_id, update_tenant
+from app.services.conversation import get_thread, save_message
 from app.services.usage import get_dashboard_metrics, get_tenant_usage_summary
+from app.services.whatsapp import send_text_message
 
 router = APIRouter(prefix="/panel", tags=["panel"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
@@ -66,6 +69,7 @@ def dashboard(request: Request) -> Response:
         return redirect
 
     metrics = get_dashboard_metrics()
+    metrics["pending_handoffs"] = count_pending_handoffs()
     return templates.TemplateResponse(
         "dashboard.html",
         {"request": request, "metrics": metrics, "plans": PLANS},
@@ -97,6 +101,7 @@ def create_tenant_submit(
     plan: str = Form("business"),
     monthly_message_limit: int | None = Form(None),
     business_context_file: str = Form(""),
+    notify_phone: str = Form(""),
     is_active: str | None = Form(None),
 ) -> Response:
     redirect = _require_auth(request)
@@ -116,6 +121,7 @@ def create_tenant_submit(
                 "plan": plan,
                 "monthly_message_limit": monthly_message_limit or get_plan_limit(plan),
                 "business_context_file": business_context_file.strip(),
+                "notify_phone": notify_phone.strip(),
                 "is_active": is_active == "on",
             }
         )
@@ -164,6 +170,7 @@ def update_tenant_submit(
     plan: str = Form("business"),
     monthly_message_limit: int = Form(...),
     business_context_file: str = Form(""),
+    notify_phone: str = Form(""),
     is_active: str | None = Form(None),
 ) -> Response:
     redirect = _require_auth(request)
@@ -184,6 +191,7 @@ def update_tenant_submit(
                 "plan": plan,
                 "monthly_message_limit": monthly_message_limit,
                 "business_context_file": business_context_file.strip(),
+                "notify_phone": notify_phone.strip(),
                 "is_active": is_active == "on",
             },
         )
@@ -202,3 +210,88 @@ def update_tenant_submit(
             },
             status_code=400,
         )
+
+
+@router.get("/conversations", response_class=HTMLResponse, response_model=None)
+def conversations_page(request: Request) -> Response:
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    conversations = list_conversations()
+    return templates.TemplateResponse(
+        "conversations.html",
+        {"request": request, "conversations": conversations},
+    )
+
+
+@router.get("/conversations/{tenant_id}/{phone}", response_class=HTMLResponse, response_model=None)
+def conversation_detail(request: Request, tenant_id: int, phone: str) -> Response:
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    tenant = get_tenant_config_by_id(tenant_id)
+    if not tenant:
+        return RedirectResponse("/panel/conversations", status_code=303)
+
+    from app.services.handoff import is_bot_enabled
+
+    thread = get_thread(tenant_id, phone)
+    return templates.TemplateResponse(
+        "conversation_detail.html",
+        {
+            "request": request,
+            "tenant": tenant,
+            "phone": phone,
+            "thread": thread,
+            "bot_enabled": is_bot_enabled(tenant_id, phone),
+        },
+    )
+
+
+@router.post("/conversations/{tenant_id}/{phone}/pause", response_model=None)
+def pause_conversation(request: Request, tenant_id: int, phone: str) -> Response:
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+    pause_bot(tenant_id, phone, reason="manual", advisor_phone="")
+    return RedirectResponse(f"/panel/conversations/{tenant_id}/{phone}", status_code=303)
+
+
+@router.post("/conversations/{tenant_id}/{phone}/resume", response_model=None)
+def resume_conversation(request: Request, tenant_id: int, phone: str) -> Response:
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+    resume_bot(tenant_id, phone)
+    return RedirectResponse(f"/panel/conversations/{tenant_id}/{phone}", status_code=303)
+
+
+@router.post("/conversations/{tenant_id}/{phone}/reply", response_model=None)
+async def reply_conversation(
+    request: Request,
+    tenant_id: int,
+    phone: str,
+    message: str = Form(...),
+) -> Response:
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    tenant = get_tenant_config_by_id(tenant_id)
+    if not tenant:
+        return RedirectResponse("/panel/conversations", status_code=303)
+
+    text = message.strip()
+    if text:
+        pause_bot(
+            tenant_id,
+            phone,
+            reason="manual",
+            advisor_phone=tenant.notify_phone or "",
+        )
+        await send_text_message(tenant, phone, text)
+        save_message(tenant, phone, "human", text)
+
+    return RedirectResponse(f"/panel/conversations/{tenant_id}/{phone}", status_code=303)

@@ -28,6 +28,7 @@ class Tenant(Base):
     max_history_messages: Mapped[int] = mapped_column(Integer, default=12)
     plan: Mapped[str] = mapped_column(String(32), default="business")
     monthly_message_limit: Mapped[int] = mapped_column(Integer, default=2500)
+    notify_phone: Mapped[str] = mapped_column(String(32), default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -56,6 +57,22 @@ class TenantUsage(Base):
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
     period: Mapped[str] = mapped_column(String(7), index=True)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ConversationState(Base):
+    __tablename__ = "conversation_states"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    phone: Mapped[str] = mapped_column(String(32), index=True)
+    bot_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    handoff_reason: Mapped[str] = mapped_column(String(120), default="")
+    assigned_advisor_phone: Mapped[str] = mapped_column(String(32), default="")
+    bridge_customer_phone: Mapped[str] = mapped_column(String(32), default="")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
 
 
 def _database_url() -> str:
@@ -87,6 +104,8 @@ def _migrate_tenants_table() -> None:
             conn.execute(text("ALTER TABLE tenants ADD COLUMN plan VARCHAR(32) DEFAULT 'business'"))
         if "monthly_message_limit" not in columns:
             conn.execute(text("ALTER TABLE tenants ADD COLUMN monthly_message_limit INTEGER DEFAULT 2500"))
+        if "notify_phone" not in columns:
+            conn.execute(text("ALTER TABLE tenants ADD COLUMN notify_phone VARCHAR(32) DEFAULT ''"))
 
 
 def _migrate_messages_table() -> None:
@@ -104,6 +123,29 @@ def _migrate_messages_table() -> None:
                     text("UPDATE messages SET tenant_id = :tenant_id WHERE tenant_id IS NULL"),
                     {"tenant_id": default_tenant[0]},
                 )
+
+
+def _migrate_conversation_states_table() -> None:
+    inspector = inspect(engine)
+    if "conversation_states" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("conversation_states")}
+    with engine.begin() as conn:
+        if "assigned_advisor_phone" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE conversation_states "
+                    "ADD COLUMN assigned_advisor_phone VARCHAR(32) DEFAULT ''"
+                )
+            )
+        if "bridge_customer_phone" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE conversation_states "
+                    "ADD COLUMN bridge_customer_phone VARCHAR(32) DEFAULT ''"
+                )
+            )
 
 
 def seed_default_tenant_from_env() -> None:
@@ -151,4 +193,5 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _migrate_tenants_table()
     _migrate_messages_table()
+    _migrate_conversation_states_table()
     seed_default_tenant_from_env()

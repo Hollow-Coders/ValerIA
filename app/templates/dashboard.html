@@ -26,6 +26,11 @@
     <small>≥ 80% usado</small>
   </div>
   <div class="stat-card danger">
+    <span class="label">Esperando humano</span>
+    <strong>{{ metrics.pending_handoffs }}</strong>
+    <small><a href="/panel/conversations">ver chats</a></small>
+  </div>
+  <div class="stat-card danger">
     <span class="label">Límite alcanzado</span>
     <strong>{{ metrics.at_limit }}</strong>
     <small>sin respuestas IA</small>

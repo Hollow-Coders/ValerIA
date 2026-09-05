@@ -28,7 +28,14 @@ def generate_reply(
     )
 
     messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
-    messages.extend(history)
+    for item in history:
+        role = item.get("role", "user")
+        content = item.get("content", "")
+        if role == "human":
+            role = "assistant"
+        if role not in {"user", "assistant", "system"}:
+            role = "user"
+        messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": user_message})
 
     try:

@@ -16,6 +16,7 @@ class TenantConfig:
     max_history_messages: int
     plan: str
     monthly_message_limit: int
+    notify_phone: str = ""
 
 
 def resolve_business_context(

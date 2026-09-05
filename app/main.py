@@ -1,10 +1,9 @@
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-
-from pathlib import Path
 
 from app.config import settings
 from app.database import init_db
@@ -12,6 +11,14 @@ from app.routes.admin import router as admin_router
 from app.routes.panel import router as panel_router
 from app.services.ai import generate_reply
 from app.services.conversation import get_history, save_message
+from app.services.handoff import (
+    forward_customer_to_advisor,
+    handle_advisor_message,
+    is_advisor_phone,
+    is_bot_enabled,
+    should_handoff,
+    trigger_handoff,
+)
 from app.services.tenant import get_tenant_by_phone_number_id
 from app.services.usage import increment_usage, is_within_limit
 from app.services.whatsapp import send_text_message
@@ -19,7 +26,7 @@ from app.services.whatsapp import send_text_message
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("valeria")
 
-app = FastAPI(title="ValerIA", version="0.3.0")
+app = FastAPI(title="ValerIA", version="0.4.0")
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).resolve().parent / "static")), name="static")
 app.include_router(admin_router)
@@ -74,6 +81,14 @@ async def receive_webhook(request: Request) -> dict[str, str]:
 
         message = messages[0]
         if message.get("type") != "text":
+            # Si es el asesor, no contestar con el mensaje genérico de "solo texto"
+            if is_advisor_phone(tenant, message["from"]):
+                await send_text_message(
+                    tenant,
+                    message["from"],
+                    "Por ahora el puente solo soporta texto. Manda tu respuesta en texto.",
+                )
+                return {"status": "advisor_unsupported_type"}
             await send_text_message(
                 tenant,
                 message["from"],
@@ -86,16 +101,52 @@ async def receive_webhook(request: Request) -> dict[str, str]:
         if not user_text:
             return {"status": "empty"}
 
+        # Mensajes del asesor del tenant → puente WhatsApp (no IA)
+        if is_advisor_phone(tenant, phone):
+            status = await handle_advisor_message(tenant, phone, user_text)
+            logger.info("Mensaje de asesor tenant=%s status=%s", tenant.slug, status)
+            return {"status": status}
+
         history = get_history(tenant, phone)
         is_first_message = len(history) == 0
         save_message(tenant, phone, "user", user_text)
+
+        # Cliente en handoff: reenviar al asesor, no responder con IA
+        if not is_bot_enabled(tenant.id, phone):
+            forwarded = await forward_customer_to_advisor(tenant, phone, user_text)
+            logger.info(
+                "Bot pausado tenant=%s phone=%s forwarded=%s",
+                tenant.slug,
+                phone,
+                forwarded,
+            )
+            return {"status": "handoff_forwarded" if forwarded else "handoff_active"}
+
+        if should_handoff(user_text):
+            reply = await trigger_handoff(
+                tenant,
+                phone,
+                user_text,
+                reason="keyword",
+                notify_phone=tenant.notify_phone,
+            )
+            save_message(tenant, phone, "assistant", reply)
+            return {"status": "handoff"}
 
         if not is_within_limit(tenant.id, tenant.monthly_message_limit):
             reply = (
                 "Va, este mes ya se alcanzó el límite de mensajes del plan. "
                 "En un momento te atiende un asesor del equipo."
             )
-            await send_text_message(tenant, phone, reply)
+            await trigger_handoff(
+                tenant,
+                phone,
+                user_text,
+                reason="limit",
+                notify_phone=tenant.notify_phone,
+                customer_reply=reply,
+            )
+            save_message(tenant, phone, "assistant", reply)
             logger.warning("Límite alcanzado tenant=%s", tenant.slug)
             return {"status": "limit_reached"}
 
