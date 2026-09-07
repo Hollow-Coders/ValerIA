@@ -8,6 +8,21 @@ from app.database import Message, SessionLocal, Tenant
 from app.models.tenant_config import TenantConfig
 from app.services.conversation import get_history, save_message
 from app.services.handoff_keywords import wants_human_handoff
+from app.services.reminders import (
+    CONFIRM_NO,
+    CONFIRM_YES,
+    LIST_REMINDER_COMMANDS,
+    cancel_reminder,
+    create_reminder,
+    draft_confirmation_message,
+    format_local,
+    format_reminder_list,
+    get_reminder_draft,
+    list_pending_reminders,
+    looks_like_reminder_request,
+    parse_reminder_with_ai,
+    set_reminder_draft,
+)
 from app.services.whatsapp import normalize_recipient_phone, send_text_message
 
 logger = logging.getLogger("valeria")
@@ -54,6 +69,7 @@ def get_or_create_state(tenant_id: int, phone: str):
             handoff_reason="",
             assigned_advisor_phone="",
             bridge_customer_phone="",
+            reminder_draft="",
         )
         db.add(state)
         db.commit()
@@ -299,7 +315,9 @@ def _advisor_help_text() -> str:
         "Responde aquí y se lo mando al cliente.\n"
         "Comandos:\n"
         "FIN — devolver el chat a la IA\n"
-        "LISTA — ver clientes en espera"
+        "LISTA — ver clientes en espera\n"
+        "RECORDATORIOS — ver citas/avisos\n"
+        "También: \"Recuerda mañana 10:00 cita con María\""
     )
 
 
@@ -407,6 +425,81 @@ async def handle_advisor_message(
     """Procesa un mensaje del asesor. Devuelve status corto para el webhook."""
     cleaned = text.strip()
     command = cleaned.lower()
+
+    # --- Recordatorios (antes del puente, para no reenviarlos al cliente) ---
+    draft = get_reminder_draft(tenant.id, advisor_phone)
+    if draft and command in CONFIRM_YES:
+        remind_at = datetime.fromisoformat(draft["remind_at_utc"])
+        reminder = create_reminder(
+            tenant_id=tenant.id,
+            advisor_phone=advisor_phone,
+            remind_at_utc=remind_at,
+            note=draft.get("note", ""),
+            customer_name=draft.get("customer_name", ""),
+            customer_phone=draft.get("customer_phone", ""),
+        )
+        set_reminder_draft(tenant.id, advisor_phone, None)
+        when = format_local(remind_at, tenant.timezone or "America/Tijuana")
+        await send_text_message(
+            tenant,
+            advisor_phone,
+            (
+                f"Listo. Recordatorio #{reminder.id} guardado.\n"
+                f"Cuándo: {when} ({tenant.timezone or 'America/Tijuana'})\n"
+                f"Te aviso solo a ti por WhatsApp a esa hora."
+            ),
+        )
+        return "reminder_confirmed"
+
+    if draft and command in CONFIRM_NO:
+        set_reminder_draft(tenant.id, advisor_phone, None)
+        await send_text_message(tenant, advisor_phone, "Ok, no guardé el recordatorio.")
+        return "reminder_cancelled_draft"
+
+    if command in LIST_REMINDER_COMMANDS:
+        items = list_pending_reminders(tenant.id, advisor_phone)
+        await send_text_message(tenant, advisor_phone, format_reminder_list(tenant, items))
+        return "reminder_list"
+
+    cancel_match = re.fullmatch(r"(?:cancela|cancelar)\s+#?(\d+)", command)
+    if cancel_match:
+        reminder_id = int(cancel_match.group(1))
+        ok = cancel_reminder(tenant.id, reminder_id, advisor_phone)
+        msg = (
+            f"Recordatorio #{reminder_id} cancelado."
+            if ok
+            else f"No encontré el recordatorio #{reminder_id} pendiente."
+        )
+        await send_text_message(tenant, advisor_phone, msg)
+        return "reminder_cancel"
+
+    # FIN / LISTA de clientes tienen prioridad sobre el draft pendiente
+    if draft and command not in CLOSE_COMMANDS and command not in LIST_COMMANDS and not re.fullmatch(
+        r"\d{1,2}", cleaned
+    ):
+        await send_text_message(
+            tenant,
+            advisor_phone,
+            "Tienes un recordatorio por confirmar. Responde SÍ o NO.\n\n"
+            + draft_confirmation_message(tenant, draft),
+        )
+        return "reminder_awaiting_confirm"
+
+    if looks_like_reminder_request(cleaned) and not draft:
+        parsed = parse_reminder_with_ai(tenant, cleaned)
+        if parsed is None:
+            pass
+        elif parsed.get("error"):
+            await send_text_message(tenant, advisor_phone, str(parsed["error"]))
+            return "reminder_parse_error"
+        else:
+            set_reminder_draft(tenant.id, advisor_phone, parsed)
+            await send_text_message(
+                tenant,
+                advisor_phone,
+                draft_confirmation_message(tenant, parsed),
+            )
+            return "reminder_draft"
 
     if command in LIST_COMMANDS:
         pending = list_pending_for_advisor(tenant.id, advisor_phone)

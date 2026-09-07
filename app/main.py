@@ -26,7 +26,7 @@ from app.services.whatsapp import send_text_message
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("valeria")
 
-app = FastAPI(title="ValerIA", version="0.4.0")
+app = FastAPI(title="ValerIA", version="0.5.0")
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).resolve().parent / "static")), name="static")
 app.include_router(admin_router)
@@ -36,6 +36,9 @@ app.include_router(panel_router)
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+    from app.services.scheduler import start_reminder_scheduler
+
+    start_reminder_scheduler()
     logger.info("ValerIA multi-cliente lista en puerto %s", settings.port)
 
 

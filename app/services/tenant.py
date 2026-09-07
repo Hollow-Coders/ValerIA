@@ -27,6 +27,7 @@ def _to_config(tenant: Tenant) -> TenantConfig:
         plan=tenant.plan,
         monthly_message_limit=tenant.monthly_message_limit,
         notify_phone=tenant.notify_phone or "",
+        timezone=getattr(tenant, "timezone", None) or "America/Tijuana",
     )
 
 
@@ -105,6 +106,7 @@ def create_tenant(data: dict) -> dict:
             plan=plan,
             monthly_message_limit=monthly_limit,
             notify_phone=normalize_recipient_phone(data.get("notify_phone", "")),
+            timezone=(data.get("timezone") or "America/Tijuana").strip() or "America/Tijuana",
             is_active=data.get("is_active", True),
         )
         db.add(tenant)
@@ -134,12 +136,15 @@ def update_tenant(tenant_id: int, data: dict) -> dict | None:
             "plan",
             "monthly_message_limit",
             "notify_phone",
+            "timezone",
             "is_active",
         ):
             if field in data and data[field] is not None:
                 value = data[field]
                 if field == "notify_phone":
                     value = normalize_recipient_phone(str(value))
+                if field == "timezone":
+                    value = str(value).strip() or "America/Tijuana"
                 setattr(tenant, field, value)
         if "plan" in data and data["plan"] and "monthly_message_limit" not in data:
             tenant.monthly_message_limit = get_plan_limit(data["plan"])

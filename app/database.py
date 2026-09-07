@@ -29,6 +29,7 @@ class Tenant(Base):
     plan: Mapped[str] = mapped_column(String(32), default="business")
     monthly_message_limit: Mapped[int] = mapped_column(Integer, default=2500)
     notify_phone: Mapped[str] = mapped_column(String(32), default="")
+    timezone: Mapped[str] = mapped_column(String(64), default="America/Tijuana")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -69,10 +70,29 @@ class ConversationState(Base):
     handoff_reason: Mapped[str] = mapped_column(String(120), default="")
     assigned_advisor_phone: Mapped[str] = mapped_column(String(32), default="")
     bridge_customer_phone: Mapped[str] = mapped_column(String(32), default="")
+    reminder_draft: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
     )
+
+
+class Reminder(Base):
+    __tablename__ = "reminders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    advisor_phone: Mapped[str] = mapped_column(String(32), default="")
+    customer_phone: Mapped[str] = mapped_column(String(32), default="")
+    customer_name: Mapped[str] = mapped_column(String(120), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    remind_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 def _database_url() -> str:
@@ -106,6 +126,10 @@ def _migrate_tenants_table() -> None:
             conn.execute(text("ALTER TABLE tenants ADD COLUMN monthly_message_limit INTEGER DEFAULT 2500"))
         if "notify_phone" not in columns:
             conn.execute(text("ALTER TABLE tenants ADD COLUMN notify_phone VARCHAR(32) DEFAULT ''"))
+        if "timezone" not in columns:
+            conn.execute(
+                text("ALTER TABLE tenants ADD COLUMN timezone VARCHAR(64) DEFAULT 'America/Tijuana'")
+            )
 
 
 def _migrate_messages_table() -> None:
@@ -145,6 +169,10 @@ def _migrate_conversation_states_table() -> None:
                     "ALTER TABLE conversation_states "
                     "ADD COLUMN bridge_customer_phone VARCHAR(32) DEFAULT ''"
                 )
+            )
+        if "reminder_draft" not in columns:
+            conn.execute(
+                text("ALTER TABLE conversation_states ADD COLUMN reminder_draft TEXT DEFAULT ''")
             )
 
 

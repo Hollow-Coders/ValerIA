@@ -65,6 +65,20 @@
         </small>
       </div>
       <div>
+        <label>Zona horaria (recordatorios)</label>
+        <select name="timezone">
+          {% set tz = tenant.timezone if tenant and tenant.timezone else 'America/Tijuana' %}
+          <option value="America/Tijuana" {% if tz == 'America/Tijuana' %}selected{% endif %}>America/Tijuana (Baja California / Mexicali)</option>
+          <option value="America/Hermosillo" {% if tz == 'America/Hermosillo' %}selected{% endif %}>America/Hermosillo (Sonora)</option>
+          <option value="America/Mazatlan" {% if tz == 'America/Mazatlan' %}selected{% endif %}>America/Mazatlan (Pacífico MX)</option>
+          <option value="America/Mexico_City" {% if tz == 'America/Mexico_City' %}selected{% endif %}>America/Mexico_City (Centro)</option>
+          <option value="America/Cancun" {% if tz == 'America/Cancun' %}selected{% endif %}>America/Cancun (Quintana Roo)</option>
+          <option value="America/Chihuahua" {% if tz == 'America/Chihuahua' %}selected{% endif %}>America/Chihuahua</option>
+          <option value="UTC" {% if tz == 'UTC' %}selected{% endif %}>UTC</option>
+        </select>
+        <small class="muted">Se usa para interpretar y enviar recordatorios al asesor.</small>
+      </div>
+      <div>
         <label>Archivo de contexto</label>
         <input name="business_context_file" value="{{ tenant.business_context_file if tenant else 'app/contexts/seguros_mexicali_plus.txt' }}">
       </div>

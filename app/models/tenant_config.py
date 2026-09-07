@@ -17,6 +17,7 @@ class TenantConfig:
     plan: str
     monthly_message_limit: int
     notify_phone: str = ""
+    timezone: str = "America/Tijuana"
 
 
 def resolve_business_context(

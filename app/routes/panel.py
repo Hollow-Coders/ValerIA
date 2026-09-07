@@ -102,6 +102,7 @@ def create_tenant_submit(
     monthly_message_limit: int | None = Form(None),
     business_context_file: str = Form(""),
     notify_phone: str = Form(""),
+    timezone: str = Form("America/Tijuana"),
     is_active: str | None = Form(None),
 ) -> Response:
     redirect = _require_auth(request)
@@ -122,6 +123,7 @@ def create_tenant_submit(
                 "monthly_message_limit": monthly_message_limit or get_plan_limit(plan),
                 "business_context_file": business_context_file.strip(),
                 "notify_phone": notify_phone.strip(),
+                "timezone": timezone.strip() or "America/Tijuana",
                 "is_active": is_active == "on",
             }
         )
@@ -171,6 +173,7 @@ def update_tenant_submit(
     monthly_message_limit: int = Form(...),
     business_context_file: str = Form(""),
     notify_phone: str = Form(""),
+    timezone: str = Form("America/Tijuana"),
     is_active: str | None = Form(None),
 ) -> Response:
     redirect = _require_auth(request)
@@ -192,6 +195,7 @@ def update_tenant_submit(
                 "monthly_message_limit": monthly_message_limit,
                 "business_context_file": business_context_file.strip(),
                 "notify_phone": notify_phone.strip(),
+                "timezone": timezone.strip() or "America/Tijuana",
                 "is_active": is_active == "on",
             },
         )
