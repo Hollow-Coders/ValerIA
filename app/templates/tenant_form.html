@@ -15,6 +15,36 @@
 <div class="alert error">{{ error }}</div>
 {% endif %}
 
+{% if google_flash == 'connected' %}
+<div class="alert ok">Google Calendar conectado correctamente.</div>
+{% elif google_flash == 'disconnected' %}
+<div class="alert ok">Google Calendar desconectado.</div>
+{% elif google_flash == 'not_configured' %}
+<div class="alert error">Faltan GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI en el servidor.</div>
+{% elif google_flash == 'error' %}
+<div class="alert error">No se pudo completar la conexión con Google. Revisa las credenciales OAuth.</div>
+{% elif google_flash == 'denied' %}
+<div class="alert error">No se autorizó el acceso a Google Calendar.</div>
+{% endif %}
+
+{% if tenant %}
+<div class="card">
+  <h2>Google Calendar</h2>
+  {% if not google_oauth_ready %}
+  <p class="muted">Para activar esto, configura en Railway/`.env`: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y GOOGLE_REDIRECT_URI.</p>
+  {% elif google_status and google_status.connected %}
+  <p>Conectado{% if google_status.email %} como <strong>{{ google_status.email }}</strong>{% endif %}.</p>
+  <p class="muted">Al confirmar un recordatorio por WhatsApp, ValerIA crea el evento en este Calendar (calendario: {{ google_status.calendar_id }}).</p>
+  <form method="post" action="/panel/tenants/{{ tenant.id }}/google/disconnect" style="margin-top:0.75rem">
+    <button type="submit" class="btn secondary">Desconectar Google</button>
+  </form>
+  {% else %}
+  <p class="muted">Conecta el Calendar del asesor/negocio. Los recordatorios confirmados se agendan ahí (el aviso WhatsApp sigue solo al asesor).</p>
+  <a class="btn" href="/panel/tenants/{{ tenant.id }}/google/connect">Conectar Google Calendar</a>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="card">
   <form method="post" action="{% if tenant %}/panel/tenants/{{ tenant.id }}{% else %}/panel/tenants/new{% endif %}">
     <div class="form-grid">

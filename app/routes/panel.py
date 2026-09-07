@@ -8,10 +8,19 @@ from starlette.responses import Response
 from app.config import settings
 from app.services.plans import PLANS, get_plan_limit
 from app.services.handoff import count_pending_handoffs, list_conversations, pause_bot, resume_bot
+from app.services.google_calendar import (
+    build_auth_url,
+    disconnect_google,
+    exchange_code_and_store,
+    get_google_status,
+    google_oauth_configured,
+    parse_oauth_state,
+)
 from app.services.tenant import create_tenant, get_tenant_by_id, get_tenant_config_by_id, update_tenant
 from app.services.conversation import get_thread, save_message
 from app.services.usage import get_dashboard_metrics, get_tenant_usage_summary
 from app.services.whatsapp import send_text_message
+from itsdangerous import BadSignature
 
 router = APIRouter(prefix="/panel", tags=["panel"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
@@ -152,9 +161,19 @@ def edit_tenant_page(request: Request, tenant_id: int) -> Response:
         return RedirectResponse("/panel/", status_code=303)
 
     usage = get_tenant_usage_summary(tenant)
+    flash = request.query_params.get("google")
     return templates.TemplateResponse(
         "tenant_form.html",
-        {"request": request, "tenant": tenant, "usage": usage, "plans": PLANS, "error": None},
+        {
+            "request": request,
+            "tenant": tenant,
+            "usage": usage,
+            "plans": PLANS,
+            "error": None,
+            "google_status": get_google_status(tenant_id),
+            "google_oauth_ready": google_oauth_configured(),
+            "google_flash": flash,
+        },
     )
 
 
@@ -211,9 +230,70 @@ def update_tenant_submit(
                 "usage": usage,
                 "plans": PLANS,
                 "error": str(exc),
+                "google_status": get_google_status(tenant_id) if tenant else None,
+                "google_oauth_ready": google_oauth_configured(),
+                "google_flash": None,
             },
             status_code=400,
         )
+
+
+@router.get("/tenants/{tenant_id}/google/connect", response_model=None)
+def google_connect(request: Request, tenant_id: int) -> Response:
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    if not get_tenant_by_id(tenant_id):
+        return RedirectResponse("/panel/", status_code=303)
+
+    if not google_oauth_configured():
+        return RedirectResponse(
+            f"/panel/tenants/{tenant_id}?google=not_configured",
+            status_code=303,
+        )
+
+    try:
+        url = build_auth_url(tenant_id)
+    except Exception:
+        return RedirectResponse(f"/panel/tenants/{tenant_id}?google=error", status_code=303)
+    return RedirectResponse(url, status_code=303)
+
+
+@router.post("/tenants/{tenant_id}/google/disconnect", response_model=None)
+def google_disconnect(request: Request, tenant_id: int) -> Response:
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+    disconnect_google(tenant_id)
+    return RedirectResponse(f"/panel/tenants/{tenant_id}?google=disconnected", status_code=303)
+
+
+@router.get("/google/callback", response_model=None)
+async def google_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+) -> Response:
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    if error or not code or not state:
+        return RedirectResponse("/panel/?google=denied", status_code=303)
+
+    try:
+        tenant_id = parse_oauth_state(state)
+    except BadSignature:
+        return RedirectResponse("/panel/?google=invalid_state", status_code=303)
+
+    try:
+        await exchange_code_and_store(tenant_id, code)
+    except Exception:
+        return RedirectResponse(f"/panel/tenants/{tenant_id}?google=error", status_code=303)
+
+    return RedirectResponse(f"/panel/tenants/{tenant_id}?google=connected", status_code=303)
 
 
 @router.get("/conversations", response_class=HTMLResponse, response_model=None)

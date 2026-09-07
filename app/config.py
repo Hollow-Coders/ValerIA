@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     port: int = 8000
     database_url: str = "sqlite:///./valeria.db"
 
+    # Google Calendar OAuth (una app Google; tokens por tenant)
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = ""
+    public_base_url: str = ""
+
     def resolved_business_context(self) -> str:
         if self.business_context_file:
             path = Path(self.business_context_file)

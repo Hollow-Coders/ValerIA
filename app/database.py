@@ -30,6 +30,11 @@ class Tenant(Base):
     monthly_message_limit: Mapped[int] = mapped_column(Integer, default=2500)
     notify_phone: Mapped[str] = mapped_column(String(32), default="")
     timezone: Mapped[str] = mapped_column(String(64), default="America/Tijuana")
+    google_refresh_token: Mapped[str] = mapped_column(Text, default="")
+    google_access_token: Mapped[str] = mapped_column(Text, default="")
+    google_token_expiry: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    google_calendar_id: Mapped[str] = mapped_column(String(255), default="primary")
+    google_connected_email: Mapped[str] = mapped_column(String(255), default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -88,6 +93,7 @@ class Reminder(Base):
     note: Mapped[str] = mapped_column(Text, default="")
     remind_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    google_event_id: Mapped[str] = mapped_column(String(255), default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -129,6 +135,20 @@ def _migrate_tenants_table() -> None:
         if "timezone" not in columns:
             conn.execute(
                 text("ALTER TABLE tenants ADD COLUMN timezone VARCHAR(64) DEFAULT 'America/Tijuana'")
+            )
+        if "google_refresh_token" not in columns:
+            conn.execute(text("ALTER TABLE tenants ADD COLUMN google_refresh_token TEXT DEFAULT ''"))
+        if "google_access_token" not in columns:
+            conn.execute(text("ALTER TABLE tenants ADD COLUMN google_access_token TEXT DEFAULT ''"))
+        if "google_token_expiry" not in columns:
+            conn.execute(text("ALTER TABLE tenants ADD COLUMN google_token_expiry TIMESTAMP"))
+        if "google_calendar_id" not in columns:
+            conn.execute(
+                text("ALTER TABLE tenants ADD COLUMN google_calendar_id VARCHAR(255) DEFAULT 'primary'")
+            )
+        if "google_connected_email" not in columns:
+            conn.execute(
+                text("ALTER TABLE tenants ADD COLUMN google_connected_email VARCHAR(255) DEFAULT ''")
             )
 
 
@@ -173,6 +193,19 @@ def _migrate_conversation_states_table() -> None:
         if "reminder_draft" not in columns:
             conn.execute(
                 text("ALTER TABLE conversation_states ADD COLUMN reminder_draft TEXT DEFAULT ''")
+            )
+
+
+def _migrate_reminders_table() -> None:
+    inspector = inspect(engine)
+    if "reminders" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("reminders")}
+    with engine.begin() as conn:
+        if "google_event_id" not in columns:
+            conn.execute(
+                text("ALTER TABLE reminders ADD COLUMN google_event_id VARCHAR(255) DEFAULT ''")
             )
 
 
@@ -228,4 +261,5 @@ def init_db() -> None:
     _migrate_tenants_table()
     _migrate_messages_table()
     _migrate_conversation_states_table()
+    _migrate_reminders_table()
     seed_default_tenant_from_env()

@@ -440,6 +440,38 @@ async def handle_advisor_message(
         )
         set_reminder_draft(tenant.id, advisor_phone, None)
         when = format_local(remind_at, tenant.timezone or "America/Tijuana")
+
+        calendar_note = ""
+        try:
+            from app.services.google_calendar import (
+                create_calendar_event_for_reminder,
+                set_reminder_google_event,
+            )
+
+            title = f"Cita — {tenant.business_name}"
+            if draft.get("customer_name"):
+                title = f"Cita — {draft['customer_name']}"
+            elif draft.get("note"):
+                title = str(draft["note"])[:80]
+
+            event_id = await create_calendar_event_for_reminder(
+                tenant.id,
+                title=title,
+                note=draft.get("note", ""),
+                remind_at_utc=remind_at,
+                timezone_name=tenant.timezone or "America/Tijuana",
+            )
+            if event_id:
+                set_reminder_google_event(reminder.id, event_id)
+                calendar_note = "\nTambién lo agregué a Google Calendar."
+            else:
+                calendar_note = (
+                    "\n(Google Calendar no conectado o falló; el aviso por WhatsApp sí quedó.)"
+                )
+        except Exception:
+            logger.exception("No se pudo crear evento de Google Calendar")
+            calendar_note = "\n(No pude crear el evento en Google Calendar.)"
+
         await send_text_message(
             tenant,
             advisor_phone,
@@ -447,6 +479,7 @@ async def handle_advisor_message(
                 f"Listo. Recordatorio #{reminder.id} guardado.\n"
                 f"Cuándo: {when} ({tenant.timezone or 'America/Tijuana'})\n"
                 f"Te aviso solo a ti por WhatsApp a esa hora."
+                f"{calendar_note}"
             ),
         )
         return "reminder_confirmed"
