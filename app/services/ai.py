@@ -48,8 +48,10 @@ def generate_reply(
         response = client.chat.completions.create(
             model=tenant.openai_model,
             messages=messages,
-            temperature=0.55,
-            max_tokens=380,
+            temperature=0.85,
+            max_tokens=220,
+            presence_penalty=0.3,
+            frequency_penalty=0.4,
         )
     except RateLimitError:
         logger.error("OpenAI sin créditos o límite alcanzado tenant=%s", tenant.slug)
@@ -62,4 +64,7 @@ def generate_reply(
         return "Ahorita no puedo procesar tu mensaje. Te paso con alguien del equipo."
 
     reply = response.choices[0].message.content
-    return (reply or "Dame un segundito, te respondo en un momento.").strip()
+    text = (reply or "Dame un segundito, te respondo en un momento.").strip()
+    # Quitar negritas markdown si el modelo las cuela
+    text = text.replace("**", "").replace("__", "")
+    return text
