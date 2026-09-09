@@ -7,3 +7,5 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 *.log
+app/contexts/_source_*.pdf
+app/contexts/_extracted_*.txt

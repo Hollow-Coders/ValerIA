@@ -45,7 +45,7 @@ Header: `X-Admin-Key: tu_ADMIN_API_KEY`
 curl -X POST http://localhost:8000/admin/tenants ^
   -H "Content-Type: application/json" ^
   -H "X-Admin-Key: valeria_admin_secret" ^
-  -d "{\"slug\":\"clinica-sol\",\"name\":\"Clinica Sol\",\"business_name\":\"Clinica Sol\",\"whatsapp_phone_number_id\":\"OTRO_PHONE_ID\",\"whatsapp_token\":\"OTRO_TOKEN\",\"business_context_file\":\"app/contexts/seguros_mexicali_plus.txt\",\"assistant_owner_name\":\"Ana\",\"personality_level\":4}"
+  -d "{\"slug\":\"clinica-sol\",\"name\":\"Clinica Sol\",\"business_name\":\"Clinica Sol\",\"whatsapp_phone_number_id\":\"OTRO_PHONE_ID\",\"whatsapp_token\":\"OTRO_TOKEN\",\"business_context_file\":\"app/contexts/proteccion_medica_mapfre.txt\",\"assistant_owner_name\":\"Ana\",\"personality_level\":4}"
 ```
 
 Listar clientes:
