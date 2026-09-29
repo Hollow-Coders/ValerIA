@@ -48,8 +48,8 @@ def generate_reply(
         response = client.chat.completions.create(
             model=tenant.openai_model,
             messages=messages,
-            temperature=0.85,
-            max_tokens=220,
+            temperature=0.82,
+            max_tokens=260,
             presence_penalty=0.3,
             frequency_penalty=0.4,
         )
