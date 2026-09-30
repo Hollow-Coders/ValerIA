@@ -4,7 +4,7 @@ from openai import APIConnectionError, APIStatusError, OpenAI, RateLimitError
 
 from app.config import settings
 from app.models.tenant_config import TenantConfig
-from app.prompts import build_system_prompt
+from app.prompts import build_system_prompt, detect_user_language
 from app.services.context_retrieve import select_business_context
 
 logger = logging.getLogger("valeria")
@@ -21,12 +21,14 @@ def generate_reply(
 
     client = OpenAI(api_key=settings.openai_api_key)
     focused_context = select_business_context(tenant.business_context, user_message)
+    reply_language = detect_user_language(user_message)
     system_prompt = build_system_prompt(
         business_name=tenant.business_name,
         business_context=focused_context,
         personality_level=tenant.personality_level,
         assistant_owner_name=tenant.assistant_owner_name,
         is_first_message=is_first_message,
+        reply_language=reply_language,
     )
 
     # Con contexto legal largo, menos historial y respuestas un poco más largas
